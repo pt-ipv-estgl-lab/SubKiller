@@ -49,9 +49,12 @@ public class SubKiller extends JPanel {
     // height of the panel have not been set at
     // the time that the constructor is called.
 
-    private Boat boat; // The boat is defined by nested class
-    private Submarine sub;
-
+    private Boat boat;          // The boat, bomb, and sub objects are defined
+    private Bomb bomb;          //    by nested classes Boat, Bomb, and Submarine,
+    private Submarine sub;      //    which are defined later in this class.
+                                //    Note that the objects are created in the
+                                //    paintComponent() method, after the width
+                                //    and height of the panel are known.
     /**
      * The constructor sets the background color of the panel, creates the
      * timer, and adds a KeyListener, FocusListener, and MouseListener to the
@@ -68,6 +71,7 @@ public class SubKiller extends JPanel {
                     if (boat != null) {
                         boat.updateForNewFrame();
                         sub.updateForNewFrame();
+                        bomb.updateForNewFrame();
                     }
                     repaint();
                 });
@@ -112,7 +116,12 @@ public class SubKiller extends JPanel {
                     // position will be adjusted in the boat.updateForNewFrame() method.)
                     boat.centerX += 15;
                 }
+                else if (code == KeyEvent.VK_DOWN) {
+                    // Start the bomb falling, if it is not already falling.
+                if ( bomb.isFalling == false )
+                    bomb.isFalling = true;
             }
+         }
         });
 
     } // end of constructor
@@ -138,6 +147,7 @@ public class SubKiller extends JPanel {
             height = getHeight();
             boat = new Boat();
             sub = new Submarine();
+            bomb = new Bomb();
         }
 
         if (hasFocus())
@@ -153,6 +163,7 @@ public class SubKiller extends JPanel {
 
         boat.draw(g);
         sub.draw(g);
+        bomb.draw(g);
 
     } // end paintComponent()
 
@@ -171,8 +182,6 @@ public class SubKiller extends JPanel {
         void updateForNewFrame() { // Makes sure boat has not moved off screen.
             if (centerX < 0) {
                 centerX = 0;
-                sub.isExploding = true; // TODO: move to elsewere!
-                sub.explosionFrameNumber = 0;
             }
             else if (centerX > width)
                 centerX = width; 
@@ -261,5 +270,48 @@ public class SubKiller extends JPanel {
             }
         }
     } // end nested class Submarine
+    /**
+     * This nested class defines the bomb. 
+     */
+    private class Bomb {
+        int centerX, centerY; // Current position of the center of the bomb.
+        boolean isFalling;    // If true, the bomb is falling; if false, it
+                             // is attached to the boat.
+        Bomb() { // Constructor creates a bomb that is initially attached to boat.
+            isFalling = false;
+        }
+        void updateForNewFrame() {  // If bomb is falling, take appropriate action.
+            if (isFalling) {
+                if (centerY > height) {
+                        // Bomb has missed the submarine.  It is returned to its
+                        // initial state, with isFalling equal to false.
+                    isFalling = false;
+                }
+                else if (Math.abs(centerX - sub.centerX) <= 36 &&
+                        Math.abs(centerY - sub.centerY) <= 21) {
+                        // Bomb has hit the submarine.  The submarine
+                        // enters the "isExploding" state.
+                    sub.isExploding = true;
+                    sub.explosionFrameNumber = 1;
+                    isFalling = false;  // Bomb reappears on the boat.
+                }
+                else {
+                        // If the bomb has not fallen off the panel or hit the
+                        // sub, then it is moved down 10 pixels.
+                    centerY += 10;
+                }
+            }
+        }
+        void draw(Graphics g) { // Draw the bomb.
+            if ( ! isFalling ) {  // If not falling, set centerX and centerY
+                                  // to show the bomb on the bottom of the boat.
+                centerX = boat.centerX;
+                centerY = boat.centerY + 23;
+            }
+            g.setColor(Color.RED);
+            g.fillOval(centerX - 8, centerY - 8, 16, 16);
+        }
+    } // end nested class Bomb
+
 
 } // end of SubKiller class
