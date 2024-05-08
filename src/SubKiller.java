@@ -5,6 +5,8 @@ import java.awt.RenderingHints;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.Timer;
+
 import java.awt.event.MouseAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
@@ -35,6 +37,8 @@ public class SubKiller extends JPanel {
 
     // ------------------------------------------------------------------------
 
+    private Timer timer; // Timer that drives the animation.
+
     private int width, height; // The size of the panel -- the values are set
     // the first time the paintComponent() method
     // is called. This class is not designed to
@@ -46,6 +50,7 @@ public class SubKiller extends JPanel {
     // the time that the constructor is called.
 
     private Boat boat; // The boat is defined by nested class
+    private Submarine sub;
 
     /**
      * The constructor sets the background color of the panel, creates the
@@ -57,6 +62,15 @@ public class SubKiller extends JPanel {
      */
     public SubKiller() {
         setBackground(new Color(0, 200, 0));
+
+        timer = new Timer(30, // Timer fires every 30 milliseconds.
+                evt -> { // defines action to take when timer fires
+                    if (boat != null) {
+                        boat.updateForNewFrame();
+                        sub.updateForNewFrame();
+                    }
+                    repaint();
+                });
 
         addMouseListener(new MouseAdapter() {
             // The mouse listener simply requests focus when the user
@@ -72,10 +86,12 @@ public class SubKiller extends JPanel {
             // the input focus and stops the timer when the panel loses
             // the focus. It also calls repaint() when these events occur.
             public void focusGained(FocusEvent evt) {
+                timer.start();
                 repaint();
             }
 
             public void focusLost(FocusEvent evt) {
+                timer.stop();
                 repaint();
             }
         });
@@ -96,8 +112,6 @@ public class SubKiller extends JPanel {
                     // position will be adjusted in the boat.updateForNewFrame() method.)
                     boat.centerX += 15;
                 }
-                boat.updateForNewFrame(); // TODO: to move elsewere
-                repaint();
             }
         });
 
@@ -123,6 +137,7 @@ public class SubKiller extends JPanel {
             width = getWidth();
             height = getHeight();
             boat = new Boat();
+            sub = new Submarine();
         }
 
         if (hasFocus())
@@ -137,6 +152,7 @@ public class SubKiller extends JPanel {
         g.drawRect(2, 2, width - 5, height - 5);
 
         boat.draw(g);
+        sub.draw(g);
 
     } // end paintComponent()
 
@@ -153,10 +169,13 @@ public class SubKiller extends JPanel {
         }
 
         void updateForNewFrame() { // Makes sure boat has not moved off screen.
-            if (centerX < 43)
-                centerX = 43; // zero if consider the center
-            else if (centerX > width - 43)
-                centerX = width - 43; // only width if consider the center
+            if (centerX < 0) {
+                centerX = 0;
+                sub.isExploding = true; // TODO: move to elsewere!
+                sub.explosionFrameNumber = 0;
+            }
+            else if (centerX > width)
+                centerX = width; 
         }
 
         void draw(Graphics g) { // Draws the boat at its current location.
@@ -164,5 +183,83 @@ public class SubKiller extends JPanel {
             g.fillRoundRect(centerX - 40, centerY - 20, 80, 40, 20, 20);
         }
     } // end nested class Boat
+
+    /**
+     * This nested class defines the sub. Note that its constructor cannot
+     * be called until the width of the panel is known!
+     */
+    private class Submarine {
+        int centerX, centerY; // Current position of the center of the sub.
+        boolean isMovingLeft; // Tells whether the sub is moving left or right
+        boolean isExploding; // Set to true when the sub is hit by the bomb.
+        int explosionFrameNumber; // If the sub is exploding, this is the number
+                                  // of frames since the explosion started.
+
+        Submarine() { // Create the sub at a random location 40 pixels from bottom.
+            centerX = (int) (width * Math.random());
+            centerY = height - 40;
+            isExploding = false;
+            isMovingLeft = (Math.random() < 0.5);
+        }
+
+        void updateForNewFrame() { // Move sub or increase explosionFrameNumber.
+            if (isExploding) {
+                // If the sub is exploding, add 1 to explosionFrameNumber.
+                // When the number reaches 15, the explosion ends and the
+                // sub reappears in a random position.
+                explosionFrameNumber++;
+                if (explosionFrameNumber == 25) {
+                    centerX = (int) (width * Math.random());
+                    centerY = height - 40;
+                    isExploding = false;
+                    isMovingLeft = (Math.random() < 0.5);
+                }
+            } else { // Move the sub.
+                if (Math.random() < 0.04) {
+                    // In one frame out of every 25, on average, the sub
+                    // reverses its direction of motion.
+                    isMovingLeft = !isMovingLeft;
+                }
+                if (isMovingLeft) {
+                    // Move the sub 5 pixels to the left. If it moves off
+                    // the left edge of the panel, move it back to the left
+                    // edge and start it moving to the right.
+                    centerX -= 5;
+                    if (centerX <= 0) {
+                        centerX = 0;
+                        isMovingLeft = false;
+                    }
+                } else {
+                    // Move the sub 5 pixels to the right. If it moves off
+                    // the right edge of the panel, move it back to the right
+                    // edge and start it moving to the left.
+                    centerX += 5;
+                    if (centerX > width) {
+                        centerX = width;
+                        isMovingLeft = true;
+                    }
+                }
+            }
+        }
+
+        void draw(Graphics g) { // Draw sub and, if it is exploding, the explosion.
+            g.setColor(Color.BLACK);
+            g.fillOval(centerX - 30, centerY - 15, 60, 30);
+            if (isExploding) {
+                // Draw an "explosion" that grows in size as the number of
+                // frames since the start of the explosion increases.
+                g.setColor(Color.YELLOW);
+                g.fillOval(centerX - 4 * explosionFrameNumber,
+                        centerY - 2 * explosionFrameNumber,
+                        8 * explosionFrameNumber,
+                        4 * explosionFrameNumber);
+                g.setColor(Color.RED);
+                g.fillOval(centerX - 2 * explosionFrameNumber,
+                        centerY - explosionFrameNumber / 2,
+                        4 * explosionFrameNumber,
+                        explosionFrameNumber);
+            }
+        }
+    } // end nested class Submarine
 
 } // end of SubKiller class
